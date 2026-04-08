@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>업무일지</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+    background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 50%, #e0e7ff 100%);
+    background-attachment: fixed;
+    color: #0f172a;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .container { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: 270px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(255, 255, 255, 0.8);
+    padding: 28px 18px;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    z-index: 50;
+    box-shadow: none;
+  }
+  .sidebar:hover {
+    transform: translateX(0);
+    box-shadow: 4px 0 30px rgba(99,102,241,0.13);
+  }
+  .sidebar-trigger {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 20px;
+    z-index: 51;
+  }
+  .sidebar-trigger:hover ~ .sidebar-panel {
+    transform: translateX(0);
+    box-shadow: 4px 0 30px rgba(99,102,241,0.13);
+  }
+  .sidebar h1 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 28px;
+    padding: 0 10px;
+    background: linear-gradient(135deg, #0ea5e9, #3b82f6, #6366f1);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .sidebar h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    padding: 0 10px;
+    margin-bottom: 10px;
+    font-weight: 700;
+  }
+  .project-list { list-style: none; flex: 1; overflow-y: auto; }
+  .project-item {
+    padding: 12px 14px;
+    border-radius: 14px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s ease;
+    color: #334155;
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(219, 234, 254, 0.6);
+  }
+  .project-item:hover {
+    background: rgba(255, 255, 255, 0.85);
+    transform: translateX(2px);
+    border-color: rgba(147, 197, 253, 0.7);
+  }
+  .project-item.active {
+    background: linear-gradient(135deg, #38bdf8, #6366f1);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+  }
+  .project-item .count {
+    font-size: 11px;
+    background: rgba(255,255,255,0.5);
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+  .project-item.active .count {
+    background: rgba(255,255,255,0.35);
+    color: #fff;
+  }
+  .proj-btn {
+    opacity: 0;
+    background: none;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    margin-left: 4px;
+    padding: 2px 4px;
+  }
+  .project-item:hover .proj-btn { opacity: 0.7; }
+  .proj-btn:hover { opacity: 1 !important; }
+  .project-item:not(.active) .proj-btn { color: #64748b; }
+  .add-project {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.5);
+    border: 2px dashed #93c5fd;
+    color: #2563eb;
+    border-radius: 14px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    width: 100%;
+    transition: all 0.2s;
+  }
+  .add-project:hover {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: #3b82f6;
+    transform: translateY(-1px);
+  }
+
+  .sync-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(147, 197, 253, 0.4);
+  }
+  .sync-btn {
+    display: block;
+    width: 100%;
+    padding: 11px 14px;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, #38bdf8, #6366f1);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  }
+  .sync-btn:hover { transform: translateY(-1px); }
+  .sync-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .backup-btn {
+    display: block;
+    width: 100%;
+    padding: 9px 14px;
+    margin-bottom: 6px;
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(147, 197, 253, 0.5);
+    border-radius: 12px;
+    color: #1e40af;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+  }
+  .backup-btn:hover {
+    background: #fff;
+    border-color: #3b82f6;
+  }
+  .sync-info {
+    font-size: 10px;
+    color: #64748b;
+    padding: 6px 10px;
+    text-align: center;
+    line-height: 1.5;
+  }
+  .sync-info .status-on { color: #059669; font-weight: 700; }
+  .sync-info .status-off { color: #94a3b8; }
+
+  .main {
+    flex: 1;
+    padding: 36px 60px;
+    overflow-y: auto;
+    width: 100%;
+  }
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #0f172a;
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.3s;
+    z-index: 200;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.success { background: #059669; }
+  .toast.error { background: #dc2626; }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 2px dashed rgba(147, 197, 253, 0.5);
+  }
+  .header h2 {
+    font-size: 26px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .header .meta {
+    font-size: 13px;
+    color: #64748b;
+    margin-top: 4px;
+    font-weight: 500;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #38bdf8, #6366f1);
+    color: #fff;
+    border: none;
+    padding: 11px 20px;
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+    transition: all 0.2s;
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
+  }
+
+  .search {
+    width: 100%;
+    padding: 13px 18px;
+    border: 2px solid transparent;
+    border-radius: 14px;
+    font-size: 14px;
+    margin-bottom: 22px;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    transition: all 0.2s;
+  }
+  .search:focus {
+    outline: none;
+    border-color: #93c5fd;
+    background: #fff;
+  }
+
+  .form-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 20px;
+    padding: 24px;
+    margin-bottom: 22px;
+    display: none;
+    box-shadow: 0 10px 30px rgba(99, 102, 241, 0.12);
+  }
+  .form-card.open { display: block; }
+  .form-row { margin-bottom: 14px; }
+  .form-row label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 7px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .form-row input, .form-row textarea {
+    width: 100%;
+    padding: 11px 14px;
+    border: 2px solid #dbeafe;
+    border-radius: 12px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    background: #fff;
+    color: #0f172a;
+    transition: border-color 0.2s;
+  }
+  .form-row textarea { min-height: 90px; }
+  .form-row input:focus, .form-row textarea:focus {
+    outline: none;
+    border-color: #93c5fd;
+  }
+  .form-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .btn-secondary {
+    background: #fff;
+    color: #475569;
+    border: 2px solid #dbeafe;
+    padding: 11px 20px;
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover { border-color: #93c5fd; }
+
+  .entry {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 20px;
+    padding: 22px 24px;
+    margin-bottom: 14px;
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.08);
+    transition: all 0.2s;
+  }
+  .entry:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(99, 102, 241, 0.15);
+  }
+  .entry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .entry-date {
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #0ea5e9, #6366f1);
+    padding: 6px 14px;
+    border-radius: 20px;
+  }
+  .entry-actions { display: flex; gap: 4px; }
+  .entry-actions button {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.15s;
+  }
+  .entry-actions button:hover {
+    color: #475569;
+    background: #eff6ff;
+  }
+  .entry-section { margin-top: 12px; }
+  .entry-section .label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+  .entry-section .content {
+    font-size: 14px;
+    color: #0f172a;
+    white-space: pre-wrap;
+    line-height: 1.65;
+  }
+  .entry-section.learning .content {
+    color: #0f172a;
+  }
+
+  /* 접기/펼치기 */
+  .entry-content-preview {
+    font-size: 14px;
+    color: #0f172a;
+    line-height: 1.65;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    white-space: pre-wrap;
+  }
+  .entry-content-full {
+    font-size: 14px;
+    color: #0f172a;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    display: none;
+  }
+  .entry.expanded .entry-content-preview { display: none; }
+  .entry.expanded .entry-content-full { display: block; }
+  .toggle-expand {
+    font-size: 11px;
+    color: #93c5fd;
+    cursor: pointer;
+    margin-top: 6px;
+    font-weight: 600;
+    display: inline-block;
+    user-select: none;
+  }
+  .toggle-expand:hover { color: #3b82f6; }
+
+  .empty {
+    text-align: center;
+    padding: 80px 20px;
+    color: #94a3b8;
+    font-size: 15px;
+  }
+
+  .modal-bg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .modal-bg.open { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: 20px;
+    padding: 28px;
+    width: 380px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+  .modal h3 {
+    font-size: 17px;
+    margin-bottom: 18px;
+    color: #0f172a;
+    font-weight: 700;
+  }
+
+  .project-info {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
+  .project-info-tag {
+    font-size: 12px;
+    color: #475569;
+    background: rgba(219, 234, 254, 0.6);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-weight: 500;
+  }
+  .project-info-tag span {
+    font-weight: 700;
+    color: #1e40af;
+  }
+  .modal { width: 440px; }
+
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #bfdbfe; border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: #93c5fd; }
+</style>
+</head>
+<body>
+<div class="sidebar-trigger" id="sidebarTrigger"></div>
+<div class="container">
+  <aside class="sidebar" id="sidebarPanel">
+    <h1>📘 업무일지</h1>
+    <h2>프로젝트</h2>
+    <ul class="project-list" id="projectList"></ul>
+    <button class="add-project" onclick="openProjectModal()">+ 새 프로젝트</button>
+
+    <div class="sync-section">
+      <h2>Google Drive 동기화</h2>
+      <button class="sync-btn" id="signinBtn" onclick="handleAuthClick()">🔐 Google 로그인</button>
+      <div class="sync-info" id="syncInfo"><span class="status-off">미연결</span></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="header">
+      <div>
+        <h2 id="currentProject">프로젝트를 선택하세요</h2>
+        <div class="meta" id="entryCount"></div>
+        <div class="project-info" id="projectInfo"></div>
+      </div>
+      <button class="btn-primary" id="newEntryBtn" onclick="toggleForm()" style="display:none">+ 일지 작성</button>
+    </div>
+
+    <input type="text" class="search" id="search" placeholder="🔍 검색" oninput="render()">
+
+    <div class="form-card" id="formCard">
+      <div class="form-row">
+        <label>📅 날짜</label>
+        <input type="date" id="entryDate">
+      </div>
+      <div class="form-row">
+        <label>📝 업무 내용</label>
+        <textarea id="entryWork" placeholder="오늘 진행한 업무를 기록하세요"></textarea>
+      </div>
+      <div class="form-row">
+        <label>💡 러닝 포인트</label>
+        <textarea id="entryLearning" placeholder="배운 점, 인사이트, 개선할 점"></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn-secondary" onclick="toggleForm()">취소</button>
+        <button class="btn-primary" onclick="saveEntry()">저장</button>
+      </div>
+    </div>
+
+    <div id="entries"></div>
+  </main>
+</div>
+
+<div class="modal-bg" id="projectModal">
+  <div class="modal">
+    <h3 id="projectModalTitle">📘 새 프로젝트</h3>
+    <div class="form-row">
+      <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.04em;">프로젝트 이름</label>
+      <input type="text" id="newProjectName" placeholder="예: 삼성_NPLM" style="width:100%;padding:11px 14px;border:2px solid #dbeafe;border-radius:12px;font-size:14px;font-family:inherit">
+    </div>
+    <div class="form-row" style="margin-top:12px">
+      <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.04em;">📅 기간</label>
+      <input type="text" id="newProjectPeriod" placeholder="예: 2025.03 – 2025.06" style="width:100%;padding:11px 14px;border:2px solid #dbeafe;border-radius:12px;font-size:14px;font-family:inherit">
+    </div>
+    <div class="form-row" style="margin-top:12px">
+      <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.04em;">🎯 목적</label>
+      <input type="text" id="newProjectObjective" placeholder="예: AI&Data 플랫폼 도입 전략 수립" style="width:100%;padding:11px 14px;border:2px solid #dbeafe;border-radius:12px;font-size:14px;font-family:inherit">
+    </div>
+    <div class="form-row" style="margin-top:12px">
+      <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.04em;">👤 역할</label>
+      <input type="text" id="newProjectRole" placeholder="예: Associate" style="width:100%;padding:11px 14px;border:2px solid #dbeafe;border-radius:12px;font-size:14px;font-family:inherit">
+    </div>
+    <div class="form-actions" style="margin-top:18px">
+      <button class="btn-secondary" onclick="closeProjectModal()">취소</button>
+      <button class="btn-primary" id="projectModalSaveBtn" onclick="addProject()">생성</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== Google API 설정 =====
+const CLIENT_ID = '890429483521-lensoma1935ftqmjos724ekmloia0pm6.apps.googleusercontent.com';
+const API_KEY = 'AIzaSyAAHquPQRvnYtY0binksPr8K0MrLm6K3Ks';
+const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const DRIVE_FILENAME = 'worklog-data.json';
+
+const STORAGE_KEY = 'worklog-state';
+const TOKEN_KEY = 'worklog-gtoken';
+const FILE_ID_KEY = 'worklog-driveFileId';
+const LAST_SYNC_KEY = 'worklog-lastSync';
+
+let state = { projects: [], currentProjectId: null, editingEntryId: null };
+let tokenClient;
+let gapiInited = false;
+let gisInited = false;
+let isSignedIn = false;
+let isSyncing = false;
+let syncTimeout = null;
+
+// ===== 토스트 알림 =====
+function toast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 2500);
+}
+
+// ===== Google API 초기화 =====
+function gapiLoaded() {
+  gapi.load('client', initializeGapiClient);
+}
+async function initializeGapiClient() {
+  await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] });
+  gapiInited = true;
+  maybeRestoreSession();
+}
+function gisLoaded() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: '', // 동적으로 설정
+  });
+  gisInited = true;
+  maybeRestoreSession();
+}
+
+// 페이지 로드 후 GAPI/GIS 준비 체크
+function checkGoogleReady() {
+  if (typeof gapi !== 'undefined' && !gapiInited) gapiLoaded();
+  if (typeof google !== 'undefined' && google.accounts && !gisInited) gisLoaded();
+  if (!gapiInited || !gisInited) setTimeout(checkGoogleReady, 300);
+}
+
+function maybeRestoreSession() {
+  if (!gapiInited || !gisInited) return;
+  const saved = localStorage.getItem(TOKEN_KEY);
+  if (saved) {
+    try {
+      const tok = JSON.parse(saved);
+      if (tok.expires_at && tok.expires_at > Date.now()) {
+        gapi.client.setToken({ access_token: tok.access_token });
+        isSignedIn = true;
+        updateSyncUI();
+        // 자동 풀
+        pullFromDrive(true);
+        return;
+      }
+    } catch(e) {}
+  }
+  updateSyncUI();
+}
+
+// ===== 로그인 =====
+function handleAuthClick() {
+  if (!gapiInited || !gisInited) {
+    toast('Google API 로딩 중... 잠시만요', 'error');
+    return;
+  }
+  if (isSignedIn) {
+    handleSignout();
+    return;
+  }
+  tokenClient.callback = async (resp) => {
+    if (resp.error) { toast('로그인 실패: ' + resp.error, 'error'); return; }
+    const expiresAt = Date.now() + (resp.expires_in * 1000);
+    localStorage.setItem(TOKEN_KEY, JSON.stringify({
+      access_token: resp.access_token,
+      expires_at: expiresAt
+    }));
+    isSignedIn = true;
+    updateSyncUI();
+    toast('Google 로그인 성공!', 'success');
+    await pullFromDrive(true);
+  };
+  if (gapi.client.getToken() === null) {
+    tokenClient.requestAccessToken({ prompt: 'consent' });
+  } else {
+    tokenClient.requestAccessToken({ prompt: '' });
+  }
+}
+
+function handleSignout() {
+  const token = gapi.client.getToken();
+  if (token) {
+    google.accounts.oauth2.revoke(token.access_token);
+    gapi.client.setToken(null);
+  }
+  localStorage.removeItem(TOKEN_KEY);
+  isSignedIn = false;
+  updateSyncUI();
+  toast('로그아웃 완료');
+}
+
+// ===== Drive 파일 찾기/생성 =====
+async function findOrCreateDriveFile() {
+  // 1. 캐시된 파일 ID가 있으면 먼저 시도
+  let fileId = localStorage.getItem(FILE_ID_KEY);
+  if (fileId) {
+    try {
+      await gapi.client.drive.files.get({ fileId, fields: 'id' });
+      return fileId;
+    } catch(e) {
+      localStorage.removeItem(FILE_ID_KEY);
+    }
+  }
+  // 2. 이름으로 검색
+  const res = await gapi.client.drive.files.list({
+    q: `name='${DRIVE_FILENAME}' and trashed=false`,
+    fields: 'files(id, name, modifiedTime)',
+    spaces: 'drive'
+  });
+  if (res.result.files && res.result.files.length > 0) {
+    fileId = res.result.files[0].id;
+    localStorage.setItem(FILE_ID_KEY, fileId);
+    return fileId;
+  }
+  // 3. 없으면 새로 생성
+  const createRes = await gapi.client.drive.files.create({
+    resource: { name: DRIVE_FILENAME, mimeType: 'application/json' },
+    fields: 'id'
+  });
+  fileId = createRes.result.id;
+  localStorage.setItem(FILE_ID_KEY, fileId);
+  return fileId;
+}
+
+// ===== Drive에 업로드 =====
+async function pushToDrive() {
+  if (!isSignedIn || isSyncing) return;
+  isSyncing = true;
+  updateSyncUI();
+  try {
+    const fileId = await findOrCreateDriveFile();
+    const data = {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      state: state
+    };
+    const token = gapi.client.getToken().access_token;
+    const boundary = '-------314159265358979323846';
+    const delimiter = "\r\n--" + boundary + "\r\n";
+    const closeDelim = "\r\n--" + boundary + "--";
+    const metadata = { name: DRIVE_FILENAME, mimeType: 'application/json' };
+    const body =
+      delimiter +
+      'Content-Type: application/json\r\n\r\n' +
+      JSON.stringify(metadata) +
+      delimiter +
+      'Content-Type: application/json\r\n\r\n' +
+      JSON.stringify(data) +
+      closeDelim;
+    const res = await fetch(
+      `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'multipart/related; boundary="' + boundary + '"'
+        },
+        body: body
+      }
+    );
+    if (!res.ok) throw new Error('업로드 실패: ' + res.status);
+    localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
+    updateSyncUI();
+  } catch(e) {
+    console.error(e);
+    toast('동기화 실패: ' + e.message, 'error');
+  } finally {
+    isSyncing = false;
+    updateSyncUI();
+  }
+}
+
+// ===== Drive에서 다운로드 =====
+async function pullFromDrive(silent = false) {
+  if (!isSignedIn || isSyncing) return;
+  isSyncing = true;
+  updateSyncUI();
+  try {
+    const fileId = await findOrCreateDriveFile();
+    const res = await gapi.client.drive.files.get({
+      fileId: fileId,
+      alt: 'media'
+    });
+    if (!res.body) {
+      // 빈 파일 → 현재 로컬을 푸시
+      if (!silent) toast('Drive에 파일 없음, 현재 데이터 업로드');
+      await pushToDriveInternal();
+      return;
+    }
+    let driveData;
+    try { driveData = JSON.parse(res.body); }
+    catch(e) {
+      // 파싱 실패 → 로컬 우선
+      if (!silent) toast('Drive 데이터 파싱 실패, 로컬 유지', 'error');
+      return;
+    }
+    if (!driveData.state || !driveData.state.projects) {
+      if (!silent) toast('Drive 데이터 형식 오류', 'error');
+      return;
+    }
+    // 시간 비교: Drive가 더 최신이거나, 로컬이 비어있으면 가져옴
+    const localUpdated = localStorage.getItem(LAST_SYNC_KEY);
+    const driveUpdated = driveData.updatedAt;
+    const localEmpty = !state.projects.some(p => p.entries.length > 0);
+    if (localEmpty || !localUpdated || (driveUpdated && new Date(driveUpdated) > new Date(localUpdated))) {
+      state = driveData.state;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(LAST_SYNC_KEY, driveUpdated || new Date().toISOString());
+      render();
+      if (!silent) toast('Drive에서 최신 데이터 불러옴', 'success');
+    } else {
+      if (!silent) toast('이미 최신 상태');
+    }
+  } catch(e) {
+    console.error(e);
+    if (!silent) toast('불러오기 실패: ' + e.message, 'error');
+  } finally {
+    isSyncing = false;
+    updateSyncUI();
+  }
+}
+
+async function pushToDriveInternal() {
+  // pushToDrive 내부에서 isSyncing 처리하므로 별도 호출용
+  isSyncing = false;
+  await pushToDrive();
+}
+
+// ===== 자동 동기화 (디바운스) =====
+function scheduleSync() {
+  if (!isSignedIn) return;
+  if (syncTimeout) clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(() => pushToDrive(), 1500);
+}
+
+// ===== UI 업데이트 =====
+function updateSyncUI() {
+  const btn = document.getElementById('signinBtn');
+  const info = document.getElementById('syncInfo');
+  if (isSyncing) {
+    info.innerHTML = '<span class="status-on">⏳ 동기화 중...</span>';
+    return;
+  }
+  if (isSignedIn) {
+    btn.textContent = '🚪 로그아웃';
+    const last = localStorage.getItem(LAST_SYNC_KEY);
+    if (last) {
+      const d = new Date(last);
+      const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+      let timeStr;
+      if (mins < 1) timeStr = '방금 전';
+      else if (mins < 60) timeStr = mins + '분 전';
+      else if (mins < 1440) timeStr = Math.floor(mins/60) + '시간 전';
+      else timeStr = Math.floor(mins/1440) + '일 전';
+      info.innerHTML = `<span class="status-on">✓ 연결됨</span><br>마지막 동기화: ${timeStr}`;
+    } else {
+      info.innerHTML = '<span class="status-on">✓ 연결됨</span>';
+    }
+  } else {
+    btn.textContent = '🔐 Google 로그인';
+    info.innerHTML = '<span class="status-off">미연결 (로컬 저장만)</span>';
+  }
+}
+
+// ===== 로컬 저장 =====
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) state = JSON.parse(raw);
+  } catch(e) { console.error(e); }
+  if (!state.projects || !state.projects.length) {
+    state.projects = [{ id: 'p1', name: '샘플 프로젝트', entries: [] }];
+    state.currentProjectId = 'p1';
+    saveState(false);
+  }
+  if (!state.currentProjectId && state.projects.length) {
+    state.currentProjectId = state.projects[0].id;
+  }
+  render();
+}
+
+function saveState(sync = true) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (sync) scheduleSync();
+  } catch(e) { console.error(e); alert('저장 실패: ' + e.message); }
+}
+
+function currentProject() {
+  return state.projects.find(p => p.id === state.currentProjectId);
+}
+
+// ===== 로컬 백업/복원 =====
+function exportBackup() {
+  const data = { version: 1, exportedAt: new Date().toISOString(), state: state };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const today = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `worklog-backup-${today}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('백업 파일 다운로드됨', 'success');
+}
+
+function importBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.state || !data.state.projects) { alert('올바른 백업 파일이 아닙니다.'); return; }
+      const projCount = data.state.projects.length;
+      const entryCount = data.state.projects.reduce((sum, p) => sum + (p.entries?.length || 0), 0);
+      if (!confirm(`프로젝트 ${projCount}개, 일지 ${entryCount}개를 불러옵니다.\n현재 데이터는 덮어써집니다. 계속할까요?`)) {
+        event.target.value = ''; return;
+      }
+      state = data.state;
+      saveState();
+      render();
+      toast('복원 완료!', 'success');
+    } catch(err) { alert('파일을 읽을 수 없습니다: ' + err.message); }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ===== 렌더링 =====
+function render() {
+  const list = document.getElementById('projectList');
+  list.innerHTML = state.projects.map(p => `
+    <li class="project-item ${p.id === state.currentProjectId ? 'active' : ''}" onclick="selectProject('${p.id}')">
+      <span>${escapeHtml(p.name)}</span>
+      <span style="display:flex;align-items:center;gap:2px">
+        <span class="count">${p.entries.length}</span>
+        <button class="proj-btn" title="이름 변경" onclick="event.stopPropagation();renameProject('${p.id}')">✎</button>
+        <button class="proj-btn" title="삭제" onclick="event.stopPropagation();deleteProject('${p.id}')">✕</button>
+      </span>
+    </li>
+  `).join('');
+
+  updateSyncUI();
+
+  const proj = currentProject();
+  const newBtn = document.getElementById('newEntryBtn');
+  if (!proj) {
+    document.getElementById('currentProject').textContent = '프로젝트를 선택하세요';
+    document.getElementById('entries').innerHTML = '';
+    document.getElementById('entryCount').textContent = '';
+    newBtn.style.display = 'none';
+    return;
+  }
+  document.getElementById('currentProject').textContent = proj.name;
+  document.getElementById('entryCount').textContent = `총 ${proj.entries.length}개의 일지`;
+
+  const infoEl = document.getElementById('projectInfo');
+  const tags = [];
+  if (proj.period) tags.push(`<div class="project-info-tag"><span>📅 기간:</span> ${escapeHtml(proj.period)}</div>`);
+  if (proj.objective) tags.push(`<div class="project-info-tag"><span>🎯 목적:</span> ${escapeHtml(proj.objective)}</div>`);
+  if (proj.role) tags.push(`<div class="project-info-tag"><span>👤 역할:</span> ${escapeHtml(proj.role)}</div>`);
+  infoEl.innerHTML = tags.join('');
+
+  newBtn.style.display = 'block';
+
+  const q = document.getElementById('search').value.toLowerCase();
+  const filtered = proj.entries
+    .filter(e => !q || (e.work + e.learning).toLowerCase().includes(q))
+    .sort((a,b) => b.date.localeCompare(a.date));
+
+  const ec = document.getElementById('entries');
+  if (!filtered.length) {
+    ec.innerHTML = '<div class="empty">아직 작성된 일지가 없어요<br><span style="font-size:13px">+ 일지 작성을 눌러 시작해보세요</span></div>';
+    return;
+  }
+  ec.innerHTML = filtered.map(e => `
+    <div class="entry">
+      <div class="entry-header">
+        <div class="entry-date">${formatDate(e.date)}</div>
+        <div class="entry-actions">
+          <button onclick="editEntry('${e.id}')">수정</button>
+          <button onclick="deleteEntry('${e.id}')">삭제</button>
+        </div>
+      </div>
+      <div class="entry-section">
+        <div class="label">📝 업무 내용</div>
+        <div class="entry-content-preview">${escapeHtml(e.work)}</div>
+        <div class="entry-content-full">${escapeHtml(e.work)}</div>
+        ${e.work.length > 120 ? `<span class="toggle-expand" onclick="toggleExpand(this)">더 보기 ▾</span>` : ''}
+      </div>
+      ${e.learning ? `
+      <div class="entry-section learning">
+        <div class="label">💡 러닝 포인트</div>
+        <div class="entry-content-preview">${escapeHtml(e.learning)}</div>
+        <div class="entry-content-full">${escapeHtml(e.learning)}</div>
+        ${e.learning.length > 120 ? `<span class="toggle-expand" onclick="toggleExpand(this)">더 보기 ▾</span>` : ''}
+      </div>` : ''}
+    </div>
+  `).join('');
+}
+
+function toggleExpand(el) {
+  const section = el.closest('.entry-section');
+  const entry = el.closest('.entry');
+  const isExpanded = entry.classList.contains('expanded-' + Array.from(entry.querySelectorAll('.toggle-expand')).indexOf(el));
+  const idx = Array.from(entry.querySelectorAll('.toggle-expand')).indexOf(el);
+  const cls = 'expanded-section-' + idx;
+  if (entry.classList.contains(cls)) {
+    entry.classList.remove(cls);
+    section.querySelector('.entry-content-preview').style.display = '';
+    section.querySelector('.entry-content-full').style.display = 'none';
+    el.textContent = '더 보기 ▾';
+  } else {
+    entry.classList.add(cls);
+    section.querySelector('.entry-content-preview').style.display = 'none';
+    section.querySelector('.entry-content-full').style.display = 'block';
+    el.textContent = '접기 ▴';
+  }
+}
+
+function escapeHtml(s) {
+  return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function formatDate(d) {
+  const dt = new Date(d);
+  return `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')}`;
+}
+
+function selectProject(id) {
+  state.currentProjectId = id;
+  state.editingEntryId = null;
+  document.getElementById('formCard').classList.remove('open');
+  saveState(false); // 선택만 바꿀 때는 sync 안 함
+  render();
+}
+
+let renamingProjectId = null;
+
+function openProjectModal() {
+  renamingProjectId = null;
+  document.getElementById('projectModalTitle').textContent = '📘 새 프로젝트';
+  document.getElementById('projectModalSaveBtn').textContent = '생성';
+  document.getElementById('projectModalSaveBtn').onclick = addProject;
+  document.getElementById('projectModal').classList.add('open');
+  document.getElementById('newProjectName').value = '';
+  document.getElementById('newProjectPeriod').value = '';
+  document.getElementById('newProjectObjective').value = '';
+  document.getElementById('newProjectRole').value = '';
+  document.getElementById('newProjectName').focus();
+}
+function closeProjectModal() {
+  document.getElementById('projectModal').classList.remove('open');
+  renamingProjectId = null;
+}
+function addProject() {
+  const name = document.getElementById('newProjectName').value.trim();
+  if (!name) return;
+  const period = document.getElementById('newProjectPeriod').value.trim();
+  const objective = document.getElementById('newProjectObjective').value.trim();
+  const role = document.getElementById('newProjectRole').value.trim();
+  const id = 'p' + Date.now();
+  state.projects.push({ id, name, period, objective, role, entries: [] });
+  state.currentProjectId = id;
+  saveState();
+  closeProjectModal();
+  render();
+}
+function deleteProject(id) {
+  if (!confirm('이 프로젝트와 모든 일지를 삭제할까요?')) return;
+  state.projects = state.projects.filter(p => p.id !== id);
+  if (state.currentProjectId === id) {
+    state.currentProjectId = state.projects[0]?.id || null;
+  }
+  saveState();
+  render();
+}
+function renameProject(id) {
+  const proj = state.projects.find(p => p.id === id);
+  if (!proj) return;
+  renamingProjectId = id;
+  document.getElementById('projectModalTitle').textContent = '✎ 프로젝트 정보 수정';
+  document.getElementById('projectModalSaveBtn').textContent = '변경';
+  document.getElementById('projectModalSaveBtn').onclick = confirmRename;
+  document.getElementById('projectModal').classList.add('open');
+  const input = document.getElementById('newProjectName');
+  input.value = proj.name;
+  document.getElementById('newProjectPeriod').value = proj.period || '';
+  document.getElementById('newProjectObjective').value = proj.objective || '';
+  document.getElementById('newProjectRole').value = proj.role || '';
+  input.focus();
+  input.select();
+}
+function confirmRename() {
+  if (!renamingProjectId) return;
+  const proj = state.projects.find(p => p.id === renamingProjectId);
+  if (!proj) { closeProjectModal(); return; }
+  const name = document.getElementById('newProjectName').value.trim();
+  if (!name) return;
+  proj.name = name;
+  proj.period = document.getElementById('newProjectPeriod').value.trim();
+  proj.objective = document.getElementById('newProjectObjective').value.trim();
+  proj.role = document.getElementById('newProjectRole').value.trim();
+  saveState();
+  closeProjectModal();
+  render();
+}
+
+function toggleForm() {
+  const form = document.getElementById('formCard');
+  form.classList.toggle('open');
+  if (form.classList.contains('open')) {
+    if (!state.editingEntryId) {
+      document.getElementById('entryDate').value = new Date().toISOString().slice(0,10);
+      document.getElementById('entryWork').value = '';
+      document.getElementById('entryLearning').value = '';
+    }
+  } else {
+    state.editingEntryId = null;
+  }
+}
+
+function editEntry(id) {
+  const proj = currentProject();
+  const e = proj.entries.find(x => x.id === id);
+  if (!e) return;
+  state.editingEntryId = id;
+  document.getElementById('entryDate').value = e.date;
+  document.getElementById('entryWork').value = e.work;
+  document.getElementById('entryLearning').value = e.learning;
+  document.getElementById('formCard').classList.add('open');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function saveEntry() {
+  const proj = currentProject();
+  if (!proj) return;
+  const date = document.getElementById('entryDate').value;
+  const work = document.getElementById('entryWork').value.trim();
+  const learning = document.getElementById('entryLearning').value.trim();
+  if (!date || !work) { alert('날짜와 업무 내용은 필수입니다.'); return; }
+
+  if (state.editingEntryId) {
+    const e = proj.entries.find(x => x.id === state.editingEntryId);
+    Object.assign(e, { date, work, learning });
+    state.editingEntryId = null;
+  } else {
+    proj.entries.push({ id: 'e' + Date.now(), date, work, learning });
+  }
+  saveState();
+  document.getElementById('formCard').classList.remove('open');
+  render();
+}
+
+function deleteEntry(id) {
+  if (!confirm('이 일지를 삭제할까요?')) return;
+  const proj = currentProject();
+  proj.entries = proj.entries.filter(e => e.id !== id);
+  saveState();
+  render();
+}
+
+// 1분마다 UI 갱신 (마지막 동기화 시간 표시)
+setInterval(updateSyncUI, 60000);
+
+// ===== 사이드바 hover 제어 =====
+(function() {
+  const trigger = document.getElementById('sidebarTrigger');
+  const sidebar = document.getElementById('sidebarPanel');
+  let hideTimer = null;
+
+  function showSidebar() {
+    clearTimeout(hideTimer);
+    sidebar.style.transform = 'translateX(0)';
+    sidebar.style.boxShadow = '4px 0 30px rgba(99,102,241,0.13)';
+  }
+  function scheduledHide() {
+    hideTimer = setTimeout(() => {
+      sidebar.style.transform = 'translateX(-100%)';
+      sidebar.style.boxShadow = 'none';
+    }, 200);
+  }
+  trigger.addEventListener('mouseenter', showSidebar);
+  trigger.addEventListener('mouseleave', scheduledHide);
+  sidebar.addEventListener('mouseenter', showSidebar);
+  sidebar.addEventListener('mouseleave', scheduledHide);
+})();
+
+// 시작
+loadState();
+checkGoogleReady();
+</script>
+</body>
+</html>
